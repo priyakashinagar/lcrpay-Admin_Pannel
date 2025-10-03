@@ -2,8 +2,58 @@ import React, { useState, useEffect } from 'react';
 
 const Dashboard = () => {
   const [primeUsers, setPrimeUsers] = useState([]);
+  const [dashboardData, setDashboardData] = useState({});
   const [loading, setLoading] = useState(true);
   const [showAllUsers, setShowAllUsers] = useState(false);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Get token from localStorage
+      let authToken = localStorage.getItem('authToken');
+      
+      // If no direct token, try to get it from userAuth
+      if (!authToken) {
+        const userAuth = localStorage.getItem('userAuth');
+        if (userAuth) {
+          try {
+            const parsedAuth = JSON.parse(userAuth);
+            authToken = parsedAuth.userData?.access_token;
+          } catch (e) {
+            console.error('Error parsing userAuth:', e);
+          }
+        }
+      }
+      
+      console.log('Fetching dashboard data with token:', authToken);
+
+      if (!authToken) {
+        console.error('No authentication token found for dashboard data');
+        return;
+      }
+
+      const response = await fetch('https://api.lcrpay.com/admin/get_dashboard_data', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Dashboard API Response Status:', response.status);
+
+      const data = await response.json();
+      console.log('Dashboard API Response Data:', data);
+
+      if (response.ok) {
+        setDashboardData(data);
+        console.log('✅ Dashboard data set successfully:', data);
+      } else {
+        console.error('Failed to fetch dashboard data:', data.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
 
   const fetchPrimeUsers = async () => {
     try {
@@ -84,7 +134,16 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchPrimeUsers();
+    const fetchData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchDashboardData(),
+        fetchPrimeUsers()
+      ]);
+      setLoading(false);
+    };
+    
+    fetchData();
   }, []);
   return (
     <div className="2xl:flex 2xl:space-x-[48px]">
@@ -112,7 +171,7 @@ const Dashboard = () => {
               <div className="flex justify-between items-end">
                 <div className="flex-1">
                   <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
-                    7,245.00
+                    {loading ? '...' : (dashboardData.getTotalUser || '122')}
                   </p>
                   <div className="flex items-center space-x-1">
                     <span>
@@ -137,7 +196,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <span className="text-lg text-bgray-900 dark:text-white font-semibold">
-                    Today Users
+                    Total Credits
                   </span>
                 </div>
                 <div>
@@ -147,7 +206,7 @@ const Dashboard = () => {
               <div className="flex justify-between items-end">
                 <div className="flex-1">
                   <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
-                    12,245.00
+                    {loading ? '...' : `₹${dashboardData.totalCredits || '8,850'}`}
                   </p>
                   <div className="flex items-center space-x-1">
                     <span>
@@ -172,7 +231,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <span className="text-lg text-bgray-900 dark:text-white font-semibold">
-                    KYC All Users
+                    Total Debits
                   </span>
                 </div>
                 <div>
@@ -182,7 +241,7 @@ const Dashboard = () => {
               <div className="flex justify-between items-end">
                 <div className="flex-1">
                   <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
-                    32,245.00
+                    {loading ? '...' : `₹${dashboardData.TotalDebits || '8,757'}`}
                   </p>
                   <div className="flex items-center space-x-1">
                     <span>
@@ -216,7 +275,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
-                  1,530
+                  {loading ? '...' : (dashboardData.getTotalPrimeUsers || '7')}
                 </p>
                 <p className="text-sm text-bgray-500 dark:text-bgray-50">+6.7% from last month</p>
               </div>
@@ -232,7 +291,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <span className="text-lg text-bgray-900 dark:text-white font-semibold">
-                    Mobile Recharges
+                    Direct Income
                   </span>
                 </div>
                 <div>
@@ -241,7 +300,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
-                  ₹98,420
+                  {loading ? '...' : `₹${dashboardData.getTotalDirectIncome || '40'}`}
                 </p>
                 <p className="text-sm text-bgray-500 dark:text-bgray-50">+9.1% from last month</p>
               </div>
@@ -257,7 +316,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <span className="text-lg text-bgray-900 dark:text-white font-semibold">
-                    Bill Payments
+                    Level Income
                   </span>
                 </div>
                 <div>
@@ -266,9 +325,34 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
-                  ₹64,300
+                  {loading ? '...' : `₹${dashboardData.getTotalLevelIncome || '0'}`}
                 </p>
-                <p className="text-sm text-bgray-500 dark:text-bgray-50">+4.8% from last month</p>
+                <p className="text-sm text-bgray-500 dark:text-bgray-50">Level income earnings</p>
+              </div>
+            </div>
+
+            {/* ✅ New Card: Magic Income */}
+            <div className="p-5 rounded-lg bg-white dark:bg-darkblack-600">
+              <div className="flex justify-between items-center mb-5">
+                <div className="flex space-x-[7px] items-center">
+                  <div className="icon">
+                    <span>
+                      <img src="/assets/images/icons/total-earn.svg" alt="Magic Income" />
+                    </span>
+                  </div>
+                  <span className="text-lg text-bgray-900 dark:text-white font-semibold">
+                    Magic Income
+                  </span>
+                </div>
+                <div>
+                  <img src="/assets/images/avatar/members-2.png" alt="members" />
+                </div>
+              </div>
+              <div>
+                <p className="text-bgray-900 dark:text-white font-bold text-3xl leading-[48px]">
+                  {loading ? '...' : `₹${dashboardData.getTotalMagicIncome || '0'}`}
+                </p>
+                <p className="text-sm text-bgray-500 dark:text-bgray-50">Magic income earnings</p>
               </div>
             </div>
           </div>
