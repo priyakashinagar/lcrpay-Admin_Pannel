@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getUserData } from '../utils/auth';
 
 const Transaction = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const toggleDropdown = (id) => {
     const element = document.getElementById(id);
@@ -12,18 +15,127 @@ const Transaction = () => {
     }
   };
 
-  // Sample transaction data
-  const transactions = [
-    { id: 1, name: 'Devon Lane', email: 'devon@mail.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40.png' },
-    { id: 2, name: 'Bessie Cooper', email: 'devon@mail.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40-1.png' },
-    { id: 3, name: 'Ralph Edwards', email: 'weaver@example.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40-3.png' },
-    { id: 4, name: 'Arlene McCoy', email: 'lawson@example.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40-4.png' },
-    { id: 5, name: 'Bessie Cooper', email: 'devon@mail.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40-1.png' },
-    { id: 6, name: 'Dianne Russell', email: 'devon@mail.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40-2.png' },
-    { id: 7, name: 'Devon Lane', email: 'devon@mail.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40.png' },
-    { id: 8, name: 'Bessie Cooper', email: 'devon@mail.com', location: 'Philadelphia, USA', amount: '$101.00', avatar: '/assets/images/avatar/user-40x40-1.png' },
-    { id: 9, name: 'Leslie Alexander', email: 'felicia.reid@example.com', location: 'Manhattan, USA', amount: '$59.00', avatar: '/assets/images/avatar/user-40x40-6.png' }
-  ];
+  // Fetch wallet transactions from API
+  const fetchWalletTransactions = async () => {
+    try {
+      console.log('🔍 Step 1: Starting fetchWalletTransactions');
+      
+      // Get token from localStorage - same approach as Dashboard component
+      let authToken = localStorage.getItem('authToken');
+      console.log('🔍 Step 2: Direct authToken from localStorage:', authToken);
+      
+      // If no direct token, try to get it from userAuth (same as Dashboard)
+      if (!authToken) {
+        console.log('🔍 Step 3: No direct authToken, checking userAuth...');
+        const userAuth = localStorage.getItem('userAuth');
+        console.log('🔍 Step 3.1: Raw userAuth from localStorage:', userAuth);
+        
+        if (userAuth) {
+          try {
+            const parsedAuth = JSON.parse(userAuth);
+            console.log('🔍 Step 3.2: Parsed userAuth object:', parsedAuth);
+            
+            // Try the same path as Dashboard component
+            authToken = parsedAuth.userData?.access_token;
+            console.log('🔍 Step 3.3: Token from userData.access_token:', authToken);
+            
+            // If still no token, check all possible locations
+            if (!authToken) {
+              const possibleTokens = {
+                'parsedAuth.token': parsedAuth?.token,
+                'parsedAuth.access_token': parsedAuth?.access_token,
+                'parsedAuth.userData.token': parsedAuth?.userData?.token,
+                'parsedAuth.userData.access_token': parsedAuth?.userData?.access_token,
+                'parsedAuth.userData.authToken': parsedAuth?.userData?.authToken,
+                'parsedAuth.data.token': parsedAuth?.data?.token,
+                'parsedAuth.data.access_token': parsedAuth?.data?.access_token,
+              };
+              
+              console.log('🔍 Step 3.4: All possible token locations:', possibleTokens);
+              
+              // Find the first available token
+              for (const [key, value] of Object.entries(possibleTokens)) {
+                if (value) {
+                  authToken = value;
+                  console.log(`✅ Step 3.5: Found token at ${key}:`, authToken);
+                  break;
+                }
+              }
+            }
+          } catch (parseError) {
+            console.error('❌ Step 3.6: Error parsing userAuth JSON:', parseError);
+          }
+        }
+      }
+
+      console.log('🔍 Step 4: Final token for API call:', authToken);
+
+      if (!authToken) {
+        console.error('❌ Step 4.1: No authentication token found for wallet transactions');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔍 Step 5: Making API call with token:', authToken);
+
+      const response = await fetch('https://api.lcrpay.com/admin/get_all_wallet_transactions', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('🔍 Step 6: API response status:', response.status);
+      console.log('🔍 Step 6.1: API response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Step 6.2: API error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('🔍 Step 7: API response data:', result);
+      
+      if (result.status && result.data) {
+        console.log('🔍 Step 8: Transforming API data, count:', result.data.length);
+        
+        // Transform API data to match existing UI structure
+        const transformedTransactions = result.data.map((transaction, index) => ({
+          id: index + 1,
+          transactionBy: transaction.transactionBy || 'N/A',
+          amount: `₹${transaction.amount.toFixed(2)}`,
+          transaction_date: new Date(transaction.transaction_date).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          remark: transaction.remark,
+          status: transaction.status,
+          transaction_type: transaction.transaction_type,
+          reference_id: transaction.reference_id,
+          avatar: '/assets/images/avatar/user-40x40.png'
+        }));
+        
+        console.log('✅ Step 9: Transformed transactions:', transformedTransactions);
+        setTransactions(transformedTransactions);
+      } else {
+        console.log('❌ Step 8.1: Invalid API response structure:', result);
+      }
+    } catch (error) {
+      console.error('❌ Error in fetchWalletTransactions:', error);
+    } finally {
+      console.log('🔍 Step 10: Setting loading to false');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWalletTransactions();
+  }, []);
 
   // Sample chat messages
   const chatMessages = [
@@ -406,7 +518,7 @@ const Transaction = () => {
                     <td className="py-5 px-6 xl:px-0 w-[250px] lg:w-auto inline-block">
                       <div className="w-full flex space-x-2.5 items-center">
                         <span className="text-base font-medium text-bgray-600 dark:text-bgray-50">
-                          Customer name
+                          Transaction By
                         </span>
                         <span>
                           <svg
@@ -436,7 +548,7 @@ const Transaction = () => {
                     </td>
                     <td className="py-5 px-6 xl:px-0">
                       <div className="w-full flex space-x-2.5 items-center">
-                        <span className="text-base font-medium text-bgray-600 dark:text-bgray-50">Email</span>
+                        <span className="text-base font-medium text-bgray-600 dark:text-bgray-50">Transaction Date</span>
                         <span>
                           <svg
                             width="14"
@@ -458,7 +570,51 @@ const Transaction = () => {
                     </td>
                     <td className="py-5 px-6 xl:px-0">
                       <div className="flex space-x-2.5 items-center">
-                        <span className="text-base font-medium text-bgray-600 dark:text-gray-50">Location</span>
+                        <span className="text-base font-medium text-bgray-600 dark:text-gray-50">Remark</span>
+                        <span>
+                          <svg
+                            width="14"
+                            height="15"
+                            viewBox="0 0 14 15"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.332 1.31567V13.3157"
+                              stroke="#718096"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-5 px-6 xl:px-0">
+                      <div className="flex space-x-2.5 items-center">
+                        <span className="text-base font-medium text-bgray-600 dark:text-gray-50">Status</span>
+                        <span>
+                          <svg
+                            width="14"
+                            height="15"
+                            viewBox="0 0 14 15"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.332 1.31567V13.3157"
+                              stroke="#718096"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-5 px-6 xl:px-0">
+                      <div className="flex space-x-2.5 items-center">
+                        <span className="text-base font-medium text-bgray-600 dark:text-gray-50">Transaction Type</span>
                         <span>
                           <svg
                             width="14"
@@ -500,86 +656,150 @@ const Transaction = () => {
                         </span>
                       </div>
                     </td>
+                    <td className="py-5 px-6 xl:px-0">
+                      <div className="flex space-x-2.5 items-center">
+                        <span className="text-base font-medium text-bgray-600 dark:text-gray-50">Reference ID</span>
+                        <span>
+                          <svg
+                            width="14"
+                            height="15"
+                            viewBox="0 0 14 15"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.332 1.31567V13.3157"
+                              stroke="#718096"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      </div>
+                    </td>
                     <td className="py-5 px-6 xl:px-0"></td>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b border-bgray-300 dark:border-darkblack-400">
-                      <td className="">
-                        <label className="text-center">
-                          <input
-                            type="checkbox"
-                            className="focus:outline-none focus:ring-0 rounded-full border border-bgray-400 cursor-pointer w-5 h-5 text-success-300 dark:bg-darkblack-600 dark:border-darkblack-400"
-                          />
-                        </label>
-                      </td>
-                      <td className="py-5 px-6 xl:px-0">
-                        <div className="w-full flex space-x-2.5 items-center">
-                          <div className="w-10 h-10 rounded-full overflow-hidden">
-                            <img
-                              src={transaction.avatar}
-                              alt="avatar"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <p className="font-semibold text-base text-bgray-900 dark:text-white">
-                            {transaction.name}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-5 px-6 xl:px-0">
-                        <p className="font-medium text-base text-bgray-900 dark:text-bgray-50">
-                          {transaction.email}
-                        </p>
-                      </td>
-                      <td className="py-5 px-6 xl:px-0">
-                        <p className="font-medium text-base text-bgray-900 dark:text-bgray-50">
-                          {transaction.location}
-                        </p>
-                      </td>
-                      <td className="py-5 px-6 xl:px-0 w-[165px]">
-                        <p className="font-semibold text-base text-bgray-900 dark:text-white">
-                          {transaction.amount}
-                        </p>
-                      </td>
-                      <td className="py-5 px-6 xl:px-0">
-                        <div className="flex justify-center">
-                          <button type="button">
-                            <svg
-                              width="18"
-                              height="4"
-                              viewBox="0 0 18 4"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M8 2.00024C8 2.55253 8.44772 3.00024 9 3.00024C9.55228 3.00024 10 2.55253 10 2.00024C10 1.44796 9.55228 1.00024 9 1.00024C8.44772 1.00024 8 1.44796 8 2.00024Z"
-                                stroke="#A0AEC0"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <path
-                                d="M1 2.00024C1 2.55253 1.44772 3.00024 2 3.00024C2.55228 3.00024 3 2.55253 3 2.00024C3 1.44796 2.55228 1.00024 2 1.00024C1.44772 1.00024 1 1.44796 1 2.00024Z"
-                                stroke="#A0AEC0"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <path
-                                d="M15 2.00024C15 2.55253 15.4477 3.00024 16 3.00024C16.5523 3.00024 17 2.55253 17 2.00024C17 1.44796 16.5523 1.00024 16 1.00024C15.4477 1.00024 15 1.44796 15 2.00024Z"
-                                stroke="#A0AEC0"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="9" className="py-8 text-center">
+                        <div className="flex justify-center items-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success-300"></div>
+                          <span className="ml-3 text-bgray-600 dark:text-bgray-50">Loading transactions...</span>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan="9" className="py-8 text-center">
+                        <span className="text-bgray-600 dark:text-bgray-50">No transactions found</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    transactions.map((transaction) => (
+                      <tr key={transaction.id} className="border-b border-bgray-300 dark:border-darkblack-400">
+                        <td className="">
+                          <label className="text-center">
+                            <input
+                              type="checkbox"
+                              className="focus:outline-none focus:ring-0 rounded-full border border-bgray-400 cursor-pointer w-5 h-5 text-success-300 dark:bg-darkblack-600 dark:border-darkblack-400"
+                            />
+                          </label>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <div className="w-full flex space-x-2.5 items-center">
+                            <div className="w-10 h-10 rounded-full overflow-hidden">
+                              <img
+                                src={transaction.avatar}
+                                alt="avatar"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <p className="font-semibold text-base text-bgray-900 dark:text-white">
+                              {transaction.transactionBy}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <p className="font-medium text-base text-bgray-900 dark:text-bgray-50">
+                            {transaction.transaction_date}
+                          </p>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <p className="font-medium text-sm text-bgray-900 dark:text-bgray-50" title={transaction.remark}>
+                            {transaction.remark.length > 50 ? transaction.remark.substring(0, 50) + '...' : transaction.remark}
+                          </p>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            transaction.status === 'success' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                              : transaction.status === 'failed'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                          }`}>
+                            {transaction.status}
+                          </span>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            transaction.transaction_type === 'credit' 
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                              : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                          }`}>
+                            {transaction.transaction_type}
+                          </span>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0 w-[165px]">
+                          <p className="font-semibold text-base text-bgray-900 dark:text-white">
+                            {transaction.amount}
+                          </p>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <p className="font-mono text-sm text-bgray-900 dark:text-bgray-50">
+                            {transaction.reference_id}
+                          </p>
+                        </td>
+                        <td className="py-5 px-6 xl:px-0">
+                          <div className="flex justify-center">
+                            <button type="button">
+                              <svg
+                                width="18"
+                                height="4"
+                                viewBox="0 0 18 4"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M8 2.00024C8 2.55253 8.44772 3.00024 9 3.00024C9.55228 3.00024 10 2.55253 10 2.00024C10 1.44796 9.55228 1.00024 9 1.00024C8.44772 1.00024 8 1.44796 8 2.00024Z"
+                                  stroke="#A0AEC0"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M1 2.00024C1 2.55253 1.44772 3.00024 2 3.00024C2.55228 3.00024 3 2.55253 3 2.00024C3 1.44796 2.55228 1.00024 2 1.00024C1.44772 1.00024 1 1.44796 1 2.00024Z"
+                                  stroke="#A0AEC0"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M15 2.00024C15 2.55253 15.4477 3.00024 16 3.00024C16.5523 3.00024 17 2.55253 17 2.00024C17 1.44796 16.5523 1.00024 16 1.00024C15.4477 1.00024 15 1.44796 15 2.00024Z"
+                                  stroke="#A0AEC0"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
