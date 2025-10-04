@@ -931,7 +931,7 @@ const Transaction = () => {
       {/* Sidebar Section */}
       <section className="2xl:w-[400px] w-full flex flex-col lg:flex-row 2xl:space-x-0 2xl:flex-col lg:space-x-6 space-x-0">
         {/* My Wallet Section */}
-        <div className="2xl:w-full lg:w-1/2 w-full rounded-lg bg-white dark:bg-darkblack-600 dark:border dark:border-darkblack-400 px-[42px] py-5 2xl:mb-6 lg:mb-0 mb-6">
+        {/* <div className="2xl:w-full lg:w-1/2 w-full rounded-lg bg-white dark:bg-darkblack-600 dark:border dark:border-darkblack-400 px-[42px] py-5 2xl:mb-6 lg:mb-0 mb-6">
           <div className="my-wallet w-full mb-8">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-bold text-bgray-900 dark:text-white">My Wallet</h3>
@@ -1084,10 +1084,10 @@ const Transaction = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Team Chat Section */}
-        <div className="2xl:w-full lg:w-1/2 w-full rounded-lg bg-white dark:bg-darkblack-600 dark:border dark:border-darkblack-400 flex flex-col justify-between">
+        {/* <div className="2xl:w-full lg:w-1/2 w-full rounded-lg bg-white dark:bg-darkblack-600 dark:border dark:border-darkblack-400 flex flex-col justify-between">
           <div className="px-[26px] py-6 border-b border-bgray-300 dark:border-darkblack-400 flex justify-between">
             <h1 className="text-2xl font-semibold text-bgray-900 dark:text-white">Team Chat</h1>
             <div className="flex space-x-3 items-center">
@@ -1225,7 +1225,7 @@ const Transaction = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div> */}
       </section>
     </div>
   );
