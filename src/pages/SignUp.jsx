@@ -13,7 +13,7 @@ const SignUp = () => {
                 Create your account
               </h2>
               <p className="font-urbanis text-base font-medium text-bgray-600 dark:text-bgray-50">
-                Join HBA Pay and start managing your finances
+                Join LCR Pay and start managing your finances
               </p>
             </header>
             

@@ -160,7 +160,7 @@ const Sidebar = ({ isActive, onToggle }) => {
       <aside className={`${isActive ? 'block xl:block' : 'hidden'} sm:hidden sidebar-wrapper w-[308px] fixed top-0 bg-white dark:bg-darkblack-600 h-full z-30 ${isActive ? 'active' : ''}`}>
         <div className="sidebar-header relative border-r border-b border-r-[#F7F7F7] border-b-[#F7F7F7] dark:border-darkblack-400 w-full h-[108px] flex items-center pl-[50px] z-30">
           <Link to="/">
-            <img src="/assets/images/logo/HBPay.png" className="block dark:hidden" alt="logo" style={{height: '100px', width: '100px'}} />
+            <img src="" className="block dark:hidden"/>
             <img src="/assets/images/logo/logo-white.svg" className="hidden dark:block" alt="logo" />
           </Link>
           <button
